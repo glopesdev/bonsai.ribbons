@@ -11,6 +11,8 @@
     <AssemblyName>Bonsai.Ribbons</AssemblyName>
     <TargetFrameworkVersion>v4.5</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
+    <SolutionDir Condition="$(SolutionDir) == '' Or $(SolutionDir) == '*Undefined*'">..\</SolutionDir>
+    <RestorePackages>true</RestorePackages>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
     <DebugSymbols>true</DebugSymbols>
@@ -69,7 +71,7 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="DrawRibbonTrail.cs" />
+    <Compile Include="UpdateRibbonTrail.cs" />
     <Compile Include="ObservableCombinators.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="VertexHelper.cs" />
@@ -92,12 +94,5 @@
   <Target Name="AfterBuild">
     <Copy Condition="$(Configuration) == Release" SourceFiles="$(TargetPath)" DestinationFolder="$(SolutionDir)bonsai\Extensions" />
   </Target>
-  <Target Name="EnsureNuGetPackageBuildImports" BeforeTargets="PrepareForBuild">
-    <PropertyGroup>
-      <ErrorText>This project references NuGet package(s) that are missing on this computer. Enable NuGet Package Restore to download them.  For more information, see http://go.microsoft.com/fwlink/?LinkID=322105. The missing file is {0}.</ErrorText>
-    </PropertyGroup>
-    <Error Condition="!Exists('..\packages\OpenCV.Net.3.3.1\build\net40\OpenCV.Net.props')" Text="$([System.String]::Format('$(ErrorText)', '..\packages\OpenCV.Net.3.3.1\build\net40\OpenCV.Net.props'))" />
-    <Error Condition="!Exists('..\packages\OpenCV.Net.3.3.1\build\net40\OpenCV.Net.targets')" Text="$([System.String]::Format('$(ErrorText)', '..\packages\OpenCV.Net.3.3.1\build\net40\OpenCV.Net.targets'))" />
-  </Target>
-  <Import Project="..\packages\OpenCV.Net.3.3.1\build\net40\OpenCV.Net.targets" Condition="Exists('..\packages\OpenCV.Net.3.3.1\build\net40\OpenCV.Net.targets')" />
+  <Import Project="$(SolutionDir)\.nuget\NuGet.targets" Condition="Exists('$(SolutionDir)\.nuget\NuGet.targets')" />
 </Project>

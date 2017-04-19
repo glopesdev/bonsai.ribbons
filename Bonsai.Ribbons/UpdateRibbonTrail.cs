@@ -12,11 +12,27 @@ using OpenTK.Graphics.OpenGL4;
 
 namespace Bonsai.Ribbons
 {
-    public class DrawRibbonTrail : Sink<Matrix4[]>
+    public class UpdateRibbonTrail : Sink<Matrix4[]>
     {
-        [Description("The name of the shader program.")]
-        [Editor("Bonsai.Shaders.Configuration.Design.ShaderConfigurationEditor, Bonsai.Shaders.Design", typeof(UITypeEditor))]
-        public string ShaderName { get; set; }
+        public UpdateRibbonTrail()
+        {
+            Axis = Vector3.UnitY;
+        }
+
+        [Description("The name of the mesh.")]
+        [Editor("Bonsai.Shaders.Configuration.Design.MeshConfigurationEditor, Bonsai.Shaders.Design", typeof(UITypeEditor))]
+        public string MeshName { get; set; }
+
+        [TypeConverter("OpenCV.Net.NumericAggregateConverter, OpenCV.Net")]
+        [Description("An optional fixed offset for ribbon trail vertices.")]
+        public Vector3 Offset { get; set; }
+
+        [TypeConverter("OpenCV.Net.NumericAggregateConverter, OpenCV.Net")]
+        [Description("The axis along which the thickness of the ribbon trail is expressed.")]
+        public Vector3 Axis { get; set; }
+
+        [Description("The thickness of the ribbon trail.")]
+        public float Width { get; set; }
 
         static void AddVector(ref Vector4 vector, ref Vector3 axis, out Vector4 result)
         {
@@ -52,43 +68,58 @@ namespace Bonsai.Ribbons
             GL.BindVertexArray(0);
         }
 
+        public IObservable<Matrix4[]> Process(IObservable<Matrix4> source)
+        {
+            return Observable.Defer(() =>
+            {
+                var poses = new List<Matrix4>();
+                return Process(source.Select(input =>
+                {
+                    if (!float.IsNaN(input.M11) || poses.Count == 0 || !float.IsNaN(poses[poses.Count - 1].M11))
+                    {
+                        poses.Add(input);
+                    }
+                    return poses.ToArray();
+                }));
+            });
+        }
+
         public override IObservable<Matrix4[]> Process(IObservable<Matrix4[]> source)
         {
             return Observable.Defer(() =>
             {
                 Mesh mesh = null;
                 Vector4[] vertices = null;
-                Vector3 surfaceDirection = Vector3.UnitY;
                 return source.CombineEither(
-                    ShaderManager.ReserveShader(ShaderName).Do(shader =>
+                    ShaderManager.WindowSource.Do(window =>
                     {
-                        mesh = new Mesh();
-                        mesh.DrawMode = PrimitiveType.TriangleStrip;
-                        BindVertexAttributes(mesh.VertexBuffer, mesh.VertexArray);
-                    }),
-                    (input, shader) =>
-                    {
-                        shader.Update(() =>
+                        window.Update(() =>
                         {
+                            mesh = window.Meshes[MeshName];
+                            mesh.DrawMode = PrimitiveType.TriangleStrip;
+                            BindVertexAttributes(mesh.VertexBuffer, mesh.VertexArray);
+                        });
+                    }),
+                    (input, window) =>
+                    {
+                        window.Update(() =>
+                        {
+                            var offset = Offset;
+                            var surfaceDirection = Width * Axis;
                             vertices = new Vector4[input.Length * 2];
                             for (int i = 0; i < input.Length; i++)
                             {
-                                Vector3 axis;
+                                Vector3 axis, off;
                                 Vector3.TransformVector(ref surfaceDirection, ref input[i], out axis);
+                                Vector3.TransformVector(ref offset, ref input[i], out off);
+                                AddVector(ref input[i].Row3, ref off, out input[i].Row3);
                                 AddVector(ref input[i].Row3, ref axis, out vertices[i * 2 + 0]);
                                 SubtractVector(ref input[i].Row3, ref axis, out vertices[i * 2 + 1]);
                             }
 
                             mesh.VertexCount = VertexHelper.UpdateVertexBuffer(mesh.VertexBuffer, vertices, BufferUsageHint.DynamicDraw);
-                            mesh.Draw();
                         });
                         return input;
-                    }).Finally(() =>
-                    {
-                        if (mesh != null)
-                        {
-                            mesh.Dispose();
-                        }
                     });
             });
         }
